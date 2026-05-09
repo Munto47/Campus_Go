@@ -11,11 +11,11 @@ const ICON_MAP = {
   'flash':           '/assets/icons/flash-dynamic-color.png',
 }
 
-export default function ProfileTab() {
-  const [tokens, setTokens]         = useState(mockUser.tokens)
+export default function ProfileTab({ userStats, onUpdateStats }) {
+  const [tokens, setTokens]         = useState(userStats?.tokens ?? mockUser.tokens)
   const [toast, setToast]           = useState({ visible: false, msg: '' })
   const [redeemedIds, setRedeemed]  = useState(new Set())
-  const [shakeId, setShakeId]       = useState(null)   // insufficient-funds shake
+  const [shakeId, setShakeId]       = useState(null)
 
   const fireToast = (msg) => {
     setToast({ visible: true, msg })
@@ -23,17 +23,22 @@ export default function ProfileTab() {
   }
 
   const redeem = (item) => {
-    if (redeemedIds.has(item.id)) return           // already redeemed — no-op
+    if (redeemedIds.has(item.id)) return
     if (tokens < item.cost) {
-      setShakeId(item.id)                           // shake the button
+      setShakeId(item.id)
       setTimeout(() => setShakeId(null), 500)
       fireToast('💰 代币不足，继续运动赚取吧！')
       return
     }
-    setTokens(t => t - item.cost)
+    const newT = tokens - item.cost
+    setTokens(newT)
+    onUpdateStats?.(prev => ({ ...prev, tokens: newT }))
     setRedeemed(prev => new Set([...prev, item.id]))
     fireToast(`🎉 兑换成功！${item.name} 已发放至钱包`)
   }
+
+  // Find a badge close to unlocking (≥70% progress)
+  const nearBadge = mockBadges.find(b => !b.unlocked && b.progress / b.target >= 0.7)
 
   return (
     <div className="w-full h-full bg-[#F2F2F7] overflow-y-auto relative">
@@ -59,7 +64,7 @@ export default function ProfileTab() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
                 >
-                  {mockUser.streakDays}
+                  {userStats?.streakDays ?? mockUser.streakDays}
                 </motion.p>
                 <p className="text-[#8E8E93] font-light text-lg mb-1">天</p>
               </div>
@@ -82,12 +87,41 @@ export default function ProfileTab() {
               <p className="text-[#8E8E93] text-xs mt-1">Campus Coin</p>
             </div>
           </div>
-
         </div>
 
         {/* ── Achievement Shelf ── */}
         <section>
           <h2 className="font-bold text-lg text-black mb-3">荣誉陈列架</h2>
+
+          {/* Near-unlock alert */}
+          <AnimatePresence>
+            {nearBadge && (
+              <motion.div
+                className="bg-[#F0FDF4] border border-[#34C759]/25 rounded-2xl p-4 flex items-center gap-3 mb-3"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ delay: 0.4 }}
+              >
+                <motion.span
+                  className="text-2xl flex-shrink-0"
+                  animate={{ scale: [1, 1.15, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  ✨
+                </motion.span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-black">「{nearBadge.label}」即将解锁！</p>
+                  <p className="text-xs text-[#8E8E93] mt-0.5">
+                    再完成 {nearBadge.target - nearBadge.progress} 次，即可获得成就
+                  </p>
+                </div>
+                <p className="font-black text-lg text-[#34C759] flex-shrink-0">
+                  {Math.round(nearBadge.progress / nearBadge.target * 100)}%
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Featured trophy */}
           <div className="bg-white rounded-3xl p-6 mb-3 flex flex-col items-center">
@@ -99,8 +133,8 @@ export default function ProfileTab() {
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
             />
-            <p className="font-black text-lg text-black mt-3">跑步王者</p>
-            <p className="text-[#8E8E93] text-sm">累计跑步超过 100km</p>
+            <p className="font-black text-lg text-black mt-3">{mockBadges[0].label}</p>
+            <p className="text-[#8E8E93] text-sm">{mockBadges[0].condition}</p>
           </div>
 
           {/* Badge grid */}
@@ -108,8 +142,8 @@ export default function ProfileTab() {
             {mockBadges.slice(1).map(badge => (
               <div
                 key={badge.id}
-                className={`bg-white rounded-2xl p-3 flex flex-col items-center gap-1.5
-                  ${!badge.unlocked ? 'opacity-40' : ''}`}
+                className="bg-white rounded-2xl p-3 flex flex-col items-center gap-1.5"
+                style={{ opacity: badge.unlocked ? 1 : 0.9 }}
               >
                 <img
                   src={ICON_MAP[badge.icon]}
@@ -117,9 +151,24 @@ export default function ProfileTab() {
                   className={`w-10 h-10 object-contain ${!badge.unlocked ? 'grayscale' : ''}`}
                 />
                 <p className="text-xs font-semibold text-black text-center leading-tight">{badge.label}</p>
-                <span className={`text-[10px] font-medium ${badge.unlocked ? 'text-[#34C759]' : 'text-[#C7C7CC]'}`}>
-                  {badge.unlocked ? '已解锁' : '未解锁'}
-                </span>
+
+                {badge.unlocked ? (
+                  <span className="text-[10px] font-medium text-[#34C759]">✓ 已解锁</span>
+                ) : (
+                  <>
+                    <div className="w-full h-1 bg-[#F2F2F7] rounded-full overflow-hidden mt-0.5">
+                      <motion.div
+                        className="h-full bg-[#34C759] rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(badge.progress / badge.target) * 100}%` }}
+                        transition={{ delay: 0.3, duration: 0.8, ease: 'easeOut' }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-[#C7C7CC]">
+                      {badge.progress}/{badge.target}
+                    </span>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -129,7 +178,6 @@ export default function ProfileTab() {
         <section>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="font-bold text-lg text-black">代币商城</h2>
-            {/* Balance flashes red → black when tokens drop */}
             <motion.span
               key={tokens}
               className="text-sm font-medium"
@@ -177,7 +225,7 @@ export default function ProfileTab() {
                       <p className="text-white/70 text-xs">代币</p>
                     </div>
 
-                    {/* ── Redeemed badge ── */}
+                    {/* Redeemed badge */}
                     <AnimatePresence>
                       {redeemed && (
                         <motion.div
@@ -192,7 +240,7 @@ export default function ProfileTab() {
                     </AnimatePresence>
                   </div>
 
-                  {/* ── Redeem button ── */}
+                  {/* Redeem button */}
                   <motion.button
                     disabled={redeemed}
                     onClick={() => redeem(item)}

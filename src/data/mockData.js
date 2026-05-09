@@ -19,6 +19,8 @@ export const mockMatches = [
     avatar: '/assets/avatar/girl.png',
     goals: ['共跑 10km', '3次以上晨练', '每日步数达标'],
     compatibility: 94,
+    aiReason: '你们的活跃时间高度重合（均为 18:00–20:00），近 7 天步数波动模式相似，且都对"有陪跑压力"的社交跑步模式有偏好。预测长期坚持率提升 34%。',
+    aiTags: ['时间契合', '节奏相近', '强激励型'],
   },
   {
     name: '陈雨萱',
@@ -27,6 +29,8 @@ export const mockMatches = [
     avatar: '/assets/avatar/girl2.png',
     goals: ['每周锻炼 4 次', '完成 5km 长跑', '坚持每日打卡'],
     compatibility: 88,
+    aiReason: '体育学院背景带来专业引导优势，你近期步数呈上升趋势，配合有经验的伙伴可加速突破瓶颈期。互补型配对，适合想提升成绩的用户。',
+    aiTags: ['互补型', '专业引导', '成长加速'],
   },
 ]
 
@@ -34,9 +38,30 @@ export const mockMatches = [
 export const mockMatch = mockMatches[0]
 
 export const mockTasks = [
-  { id: 1, icon: 'gym',   title: '代取快递', sub: '南区菜鸟驿站 → 女生宿舍', reward: 80, detail: '取件码：2847，请在30分钟内取件' },
-  { id: 2, icon: 'bulb',  title: '帮买奶茶', sub: '排队代购',                  reward: 50, detail: '古茗二楼，告知收货人后转账' },
-  { id: 3, icon: 'clock', title: '图书馆占座', sub: '早起互助 6:30',           reward: 60, detail: '3楼自习区C排，带本书占好即可' },
+  {
+    id: 1, icon: 'flash',
+    title: '步数挑战令',
+    sub: '今日步数超过 12,000 步',
+    reward: 120,
+    detail: '完成后截图步数界面提交，每日限领一次。完成者额外获得"冲刺王"称号。',
+    tag: '个人挑战', deadline: '今日 23:59',
+  },
+  {
+    id: 2, icon: 'gym',
+    title: '跑步陪伴令',
+    sub: '带一位新同学完成 3km 跑步',
+    reward: 200,
+    detail: '需双方 App 同时记录跑步轨迹，系统自动核验距离。培养运动习惯，传递跑步正能量。',
+    tag: '社交任务', deadline: '本周日',
+  },
+  {
+    id: 3, icon: 'clock',
+    title: '晨练打卡令',
+    sub: '连续 3 天 7:00 前完成运动',
+    reward: 300,
+    detail: '打卡时间以首步记录为准。连续三日达成后一次性发放奖励，中断需重新计算。',
+    tag: '连续挑战', deadline: '滚动计算',
+  },
 ]
 
 export const mockSquads = [
@@ -73,10 +98,18 @@ export const mockShop = [
 ]
 
 export const mockBadges = [
-  { id: 1, icon: 'trophy-gradient', label: '跑步王者', unlocked: true  },
-  { id: 2, icon: 'gym',             label: '健身达人', unlocked: true  },
-  { id: 3, icon: 'thumb-up',        label: '互助之星', unlocked: true  },
-  { id: 4, icon: 'flash',           label: '闪电侠',   unlocked: false },
-  { id: 5, icon: 'trophy',          label: '百日打卡', unlocked: false },
-  { id: 6, icon: 'gym',             label: '马拉松',   unlocked: false },
+  { id: 1, icon: 'trophy-gradient', label: '跑步王者', unlocked: true,  progress: 100, target: 100, condition: '累计跑步超过 100km' },
+  { id: 2, icon: 'gym',            label: '健身达人', unlocked: true,  progress: 30,  target: 30,  condition: '连续健身打卡 30 天' },
+  { id: 3, icon: 'thumb-up',       label: '互助之星', unlocked: true,  progress: 5,   target: 5,   condition: '完成 5 次搭子局任务' },
+  { id: 4, icon: 'flash',          label: '闪电侠',   unlocked: false, progress: 8,   target: 10,  condition: '单日步数超 15,000 步，共 10 次' },
+  { id: 5, icon: 'trophy',         label: '百日打卡', unlocked: false, progress: 21,  target: 100, condition: '连续打卡 100 天' },
+  { id: 6, icon: 'gym',            label: '马拉松',   unlocked: false, progress: 18,  target: 42,  condition: '累计跑步距离达到 42km' },
+]
+
+export const mockLeaderboard = [
+  { rank: 1, name: '李明远', dept: '计算机学院', steps: 14820, avatar: '🏃', isMe: false },
+  { rank: 2, name: '王晓菁', dept: '医学院',     steps: 12340, avatar: '🧗', isMe: false },
+  { rank: 3, name: '张同学', dept: '工学院',     steps: 8420,  avatar: '⚡', isMe: true  },
+  { rank: 4, name: '刘思远', dept: '外语系',     steps: 7980,  avatar: '🚶', isMe: false },
+  { rank: 5, name: '陈雨萱', dept: '体育学院',   steps: 7650,  avatar: '☀️', isMe: false },
 ]

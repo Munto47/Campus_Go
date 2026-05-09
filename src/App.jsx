@@ -6,6 +6,7 @@ import HomeTab from './tabs/HomeTab'
 import PartyTab from './tabs/PartyTab'
 import MarketTab from './tabs/MarketTab'
 import ProfileTab from './tabs/ProfileTab'
+import { mockUser } from './data/mockData'
 
 const tabComponents = {
   home:   HomeTab,
@@ -16,6 +17,7 @@ const tabComponents = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home')
+  const [userStats, setUserStats] = useState({ ...mockUser, checkedIn: false })
 
   const TabContent = tabComponents[activeTab]
 
@@ -32,7 +34,11 @@ export default function App() {
             transition={{ type: 'spring', damping: 30, stiffness: 200 }}
             className="w-full h-full"
           >
-            <TabContent />
+            <TabContent
+              userStats={userStats}
+              onUpdateStats={setUserStats}
+              onTabChange={setActiveTab}
+            />
           </motion.div>
         </AnimatePresence>
       </div>

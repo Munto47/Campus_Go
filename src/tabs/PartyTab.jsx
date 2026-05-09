@@ -1,46 +1,86 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { mockActivities, mockMatches, mockUser, weeklySteps } from '../data/mockData'
+import { mockActivities, mockMatches, mockUser, weeklySteps, mockLeaderboard } from '../data/mockData'
 import Toast from '../components/Toast'
+import TypewriterText from '../components/TypewriterText'
 
 const DAYS = ['一', '二', '三', '四', '五', '六', '日']
 const TODAY_IDX = 4 // Friday
 const MAX_STEPS = Math.max(...weeklySteps.filter(s => s > 0))
 
-export default function PartyTab() {
+// ── Animated number counter (for compatibility score) ────────────
+function AnimatedNumber({ target, duration = 900 }) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    setValue(0)
+    const start = Date.now()
+    const timer = setInterval(() => {
+      const p = Math.min((Date.now() - start) / duration, 1)
+      setValue(Math.round(target * p))
+      if (p >= 1) clearInterval(timer)
+    }, 16)
+    return () => clearInterval(timer)
+  }, [target, duration])
+  return <>{value}</>
+}
+
+export default function PartyTab({ userStats }) {
   const [expandedAct, setExpandedAct]         = useState(null)
   const [showAllActivities, setShowAll]        = useState(false)
   const [signedUp, setSignedUp]                = useState([])
-  const [matching, setMatching]                = useState(false)
+  const [matchPhase, setMatchPhase]            = useState('idle') // 'idle'|'scanning'|'analyzing'|'done'
   const [matched, setMatched]                  = useState(false)
   const [matchIndex, setMatchIndex]            = useState(0)
   const [invitedSet, setInvitedSet]            = useState(new Set())
   const [toast, setToast]                      = useState({ visible: false, msg: '' })
+  const [analyzeProgress, setAnalyzeProgress]  = useState(0)
 
   const currentMatch = mockMatches[matchIndex]
   const isInvited    = invitedSet.has(matchIndex)
+
+  // Leaderboard gap calculation
+  const myEntry     = mockLeaderboard.find(u => u.isMe)
+  const secondEntry = mockLeaderboard.find(u => u.rank === 2)
+  const gapToSecond = secondEntry && myEntry ? secondEntry.steps - myEntry.steps : 0
+
+  const todaySteps = userStats?.todaySteps ?? mockUser.todaySteps
 
   const fireToast = (msg) => {
     setToast({ visible: true, msg })
     setTimeout(() => setToast({ visible: false, msg: '' }), 2500)
   }
 
-  // 首次匹配：1 秒
+  // Reset analyzing progress bar when phase changes
+  useEffect(() => {
+    if (matchPhase === 'analyzing') {
+      setAnalyzeProgress(0)
+      const start = Date.now()
+      const timer = setInterval(() => {
+        const p = Math.min((Date.now() - start) / 800, 1)
+        setAnalyzeProgress(p * 100)
+        if (p >= 1) clearInterval(timer)
+      }, 16)
+      return () => clearInterval(timer)
+    }
+  }, [matchPhase])
+
+  // 首次匹配：两阶段动画
   const startMatch = () => {
-    setMatching(true)
-    setTimeout(() => { setMatching(false); setMatched(true) }, 1000)
+    setMatchPhase('scanning')
+    setTimeout(() => setMatchPhase('analyzing'), 800)
+    setTimeout(() => { setMatchPhase('done'); setMatched(true) }, 1600)
   }
 
-  // 换一个：快速重新匹配（0.7 秒），切换到另一位搭档
+  // 换一个：快速重新匹配
   const tryAnother = () => {
     setMatched(false)
-    setMatching(true)
+    setMatchPhase('scanning')
     const next = (matchIndex + 1) % mockMatches.length
     setMatchIndex(next)
-    setTimeout(() => { setMatching(false); setMatched(true) }, 700)
+    setTimeout(() => { setMatchPhase('done'); setMatched(true) }, 700)
   }
 
-  // 发起约局：记录已发出状态
+  // 发起约局
   const sendInvite = () => {
     setInvitedSet(prev => new Set([...prev, matchIndex]))
     fireToast('🎉 已发送约局邀请！')
@@ -49,9 +89,20 @@ export default function PartyTab() {
   // The activity object for the current expanded card
   const act = mockActivities.find(a => a.id === expandedAct)
 
+  const rankColors = (rank) => {
+    if (rank === 1) return { bg: '#FFD60A', text: '#000000' }
+    if (rank === 2) return { bg: '#C7C7CC', text: '#FFFFFF' }
+    if (rank === 3) return { bg: '#FF9F0A', text: '#FFFFFF' }
+    return { bg: '#F2F2F7', text: '#8E8E93' }
+  }
+
   return (
-    <div className="w-full h-full bg-[#F2F2F7] overflow-y-auto relative">
+    // 外层：relative 定位锚点，不滚动 —— 弹窗 absolute 以此为基准，始终固定
+    <div className="w-full h-full relative">
       <Toast message={toast.msg} visible={toast.visible} />
+
+      {/* ── 内层：实际滚动区域 ── */}
+      <div className="w-full h-full bg-[#F2F2F7] overflow-y-auto">
 
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-md px-5 pt-14 pb-4 sticky top-0 z-10">
@@ -61,19 +112,19 @@ export default function PartyTab() {
 
       <div className="px-4 py-4 space-y-4">
 
-        {/* ── 本周打卡记录（从 Tab4 迁移）── */}
+        {/* ── 本周打卡记录 ── */}
         <section className="bg-white rounded-3xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-bold text-lg text-black">本周打卡</h2>
               <p className="text-[#8E8E93] text-sm mt-0.5">
-                今日 {mockUser.todaySteps.toLocaleString()} 步
+                今日 {todaySteps.toLocaleString()} 步
               </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-2xl">🔥</span>
               <div>
-                <p className="font-black text-2xl text-black leading-none">{mockUser.streakDays}</p>
+                <p className="font-black text-2xl text-black leading-none">{userStats?.streakDays ?? mockUser.streakDays}</p>
                 <p className="text-[#8E8E93] text-xs text-right">连续天</p>
               </div>
             </div>
@@ -88,9 +139,6 @@ export default function PartyTab() {
                   style={{ background: i < 5 ? '#34C759' : '#F2F2F7' }}
                 >
                   {i < 5 && <span className="text-white text-xs font-bold">✓</span>}
-                  {i === TODAY_IDX && (
-                    <div className="absolute w-2 h-2 rounded-full bg-white/60" />
-                  )}
                 </div>
                 <span
                   className="text-[10px] font-medium"
@@ -125,6 +173,69 @@ export default function PartyTab() {
               <span key={i} className="flex-1 text-center text-[9px] text-[#C7C7CC]">{d}</span>
             ))}
           </div>
+        </section>
+
+        {/* ── 校园步数排行榜 ── */}
+        <section className="bg-white rounded-3xl p-5">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="font-bold text-lg text-black">🏆 本周步数榜</h2>
+            <span className="text-[#8E8E93] text-xs">周一至今</span>
+          </div>
+
+          <div className="space-y-2.5">
+            {mockLeaderboard.map((user, i) => {
+              const rc = rankColors(user.rank)
+              return (
+                <motion.div
+                  key={user.rank}
+                  className="flex items-center gap-3 p-3 rounded-2xl"
+                  style={{ background: user.isMe ? '#F0FDF4' : '#F2F2F7',
+                    border: user.isMe ? '1px solid rgba(52,199,89,0.2)' : '1px solid transparent' }}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.07, type: 'spring', stiffness: 200 }}
+                >
+                  {/* Rank badge */}
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0"
+                    style={{ background: rc.bg, color: rc.text }}
+                  >
+                    {user.rank}
+                  </div>
+                  {/* Avatar */}
+                  <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-xl flex-shrink-0 shadow-sm">
+                    {user.avatar}
+                  </div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm" style={{ color: user.isMe ? '#34C759' : '#000000' }}>
+                      {user.name}{user.isMe ? ' (我)' : ''}
+                    </p>
+                    <p className="text-[#8E8E93] text-xs truncate">{user.dept}</p>
+                  </div>
+                  {/* Steps */}
+                  <p className="font-black text-base flex-shrink-0" style={{ color: user.isMe ? '#34C759' : '#000000' }}>
+                    {user.steps.toLocaleString()}
+                  </p>
+                </motion.div>
+              )
+            })}
+          </div>
+
+          {/* Gap to 2nd notice */}
+          {gapToSecond > 0 && (
+            <motion.div
+              className="mt-4 bg-[#F2F2F7] rounded-xl p-3 flex items-center gap-2"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <span className="text-base">💪</span>
+              <p className="text-sm text-[#3C3C43]">
+                距离第 2 名还差 <span className="font-bold text-black">{gapToSecond.toLocaleString()} 步</span>，加油冲榜！
+              </p>
+            </motion.div>
+          )}
         </section>
 
         {/* ── Activity Cards ── */}
@@ -179,7 +290,8 @@ export default function PartyTab() {
           </div>
 
           <div className="mt-4">
-            {!matching && !matched && (
+            {/* Idle: show start button */}
+            {matchPhase === 'idle' && !matched && (
               <button
                 onClick={startMatch}
                 className="w-full py-4 bg-[#34C759] text-white font-bold text-base rounded-2xl active:opacity-80 transition-opacity"
@@ -188,24 +300,55 @@ export default function PartyTab() {
               </button>
             )}
 
+            {/* Loading: two-phase animation */}
             <AnimatePresence>
-              {matching && (
+              {(matchPhase === 'scanning' || matchPhase === 'analyzing') && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="flex flex-col items-center py-6 gap-3"
+                  className="py-6"
                 >
-                  <motion.div
-                    className="w-10 h-10 rounded-full border-2 border-[#E5E5EA] border-t-[#34C759]"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                  />
-                  <p className="text-[#8E8E93] text-sm">正在匹配中…</p>
+                  <AnimatePresence mode="wait">
+                    {matchPhase === 'scanning' && (
+                      <motion.div
+                        key="scanning"
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="flex flex-col items-center gap-3"
+                      >
+                        <motion.div
+                          className="w-10 h-10 rounded-full border-2 border-[#E5E5EA] border-t-[#34C759]"
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                        />
+                        <p className="text-[#8E8E93] text-sm">正在分析运动数据…</p>
+                      </motion.div>
+                    )}
+                    {matchPhase === 'analyzing' && (
+                      <motion.div
+                        key="analyzing"
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="flex flex-col items-center gap-3"
+                      >
+                        <div className="w-full h-2 bg-[#F2F2F7] rounded-full overflow-hidden">
+                          <motion.div
+                            className="h-full bg-[#34C759] rounded-full"
+                            style={{ width: `${analyzeProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-[#8E8E93] text-sm">正在计算兼容度…</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               )}
             </AnimatePresence>
 
+            {/* Match card */}
             <AnimatePresence mode="wait">
               {matched && (
                 <motion.div
@@ -235,14 +378,14 @@ export default function PartyTab() {
                       <div className="mt-1 flex items-center gap-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-[#34C759]" />
                         <span className="text-xs text-[#34C759] font-medium">
-                          配对度 {currentMatch.compatibility}%
+                          配对度 <AnimatedNumber target={currentMatch.compatibility} />%
                         </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Goals */}
-                  <div className="border-t border-[#F2F2F7] pt-3 space-y-2 mb-4">
+                  <div className="border-t border-[#F2F2F7] pt-3 space-y-2 mb-3">
                     <p className="text-xs text-[#8E8E93] font-medium">本周共同目标</p>
                     {currentMatch.goals.map((g, i) => (
                       <div key={i} className="flex items-center gap-2">
@@ -252,6 +395,24 @@ export default function PartyTab() {
                         <p className="text-sm text-black">{g}</p>
                       </div>
                     ))}
+                  </div>
+
+                  {/* AI analysis card */}
+                  <div className="bg-[#F0FDF4] border border-[#34C759]/20 rounded-2xl p-4 mb-4">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#34C759] animate-pulse" />
+                      <p className="text-[10px] font-semibold text-[#34C759] uppercase tracking-wider">AI 配对分析</p>
+                    </div>
+                    <p className="text-sm text-[#3C3C43] leading-relaxed">
+                      <TypewriterText text={currentMatch.aiReason} speed={22} />
+                    </p>
+                    <div className="flex gap-1.5 mt-3 flex-wrap">
+                      {currentMatch.aiTags.map(tag => (
+                        <span key={tag} className="text-[10px] bg-[#34C759]/10 text-[#34C759] px-2.5 py-1 rounded-full font-medium">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Action buttons */}
@@ -292,11 +453,12 @@ export default function PartyTab() {
         <div className="h-4" />
       </div>
 
-      {/* ── Activity detail overlay (NO layoutId — prevents image glitch on back) ── */}
+      </div>{/* end scrollable inner div */}
+
+      {/* ── Activity detail overlay（外层，不受滚动影响）── */}
       <AnimatePresence>
         {act && (
           <>
-            {/* Backdrop */}
             <motion.div
               key="backdrop"
               className="absolute inset-0 bg-black/55 z-20"
@@ -306,8 +468,6 @@ export default function PartyTab() {
               transition={{ duration: 0.25 }}
               onClick={() => setExpandedAct(null)}
             />
-
-            {/* Detail panel slides up from bottom */}
             <motion.div
               key="detail"
               className="absolute inset-x-0 bottom-0 z-30 rounded-t-[32px] overflow-hidden bg-white"
@@ -317,19 +477,9 @@ export default function PartyTab() {
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 220 }}
             >
-              {/* Image header */}
               <div className="relative w-full" style={{ height: '44%' }}>
-                <img
-                  src={act.img}
-                  alt={act.title}
-                  className="w-full h-full object-cover"
-                  style={{ display: 'block' }}
-                />
-                <div
-                  className="absolute inset-0"
-                  style={{ background: 'linear-gradient(to bottom, transparent 45%, rgba(0,0,0,0.5) 100%)' }}
-                />
-                {/* Back button */}
+                <img src={act.img} alt={act.title} className="w-full h-full object-cover" style={{ display: 'block' }} />
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 45%, rgba(0,0,0,0.5) 100%)' }} />
                 <button
                   onClick={() => setExpandedAct(null)}
                   className="absolute top-4 left-4 w-9 h-9 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center"
@@ -337,8 +487,6 @@ export default function PartyTab() {
                   <span className="text-white text-base font-bold">‹</span>
                 </button>
               </div>
-
-              {/* Content */}
               <div className="px-6 pt-5 pb-8 overflow-y-auto">
                 <p className="font-black text-2xl text-black">{act.emoji} {act.title}</p>
                 <p className="text-[#8E8E93] text-sm mt-1 mb-4">{act.sub}</p>
@@ -371,7 +519,7 @@ export default function PartyTab() {
         )}
       </AnimatePresence>
 
-      {/* ── 查看全部：子页面（从右滑入）── */}
+      {/* ── 查看全部：子页面 ── */}
       <AnimatePresence>
         {showAllActivities && (
           <motion.div
@@ -382,7 +530,6 @@ export default function PartyTab() {
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 220 }}
           >
-            {/* Sticky nav header */}
             <div className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-[#F2F2F7] z-10 px-4 pt-12 pb-3">
               <button
                 onClick={() => setShowAll(false)}
@@ -395,7 +542,6 @@ export default function PartyTab() {
               <p className="text-[#8E8E93] text-sm">选择你感兴趣的校园挑战</p>
             </div>
 
-            {/* Activities list */}
             <div className="px-4 py-4 space-y-4">
               {mockActivities.map((activity, i) => (
                 <motion.div
@@ -405,16 +551,9 @@ export default function PartyTab() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.08, type: 'spring', stiffness: 200 }}
                 >
-                  {/* Activity image */}
                   <div className="relative w-full" style={{ height: 180 }}>
-                    <img
-                      src={activity.img}
-                      alt={activity.title}
-                      className="w-full h-full object-cover"
-                      style={{ display: 'block' }}
-                    />
-                    <div className="absolute inset-0"
-                      style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.65))' }} />
+                    <img src={activity.img} alt={activity.title} className="w-full h-full object-cover" style={{ display: 'block' }} />
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.65))' }} />
                     <div className="absolute bottom-0 left-0 p-4">
                       <p className="text-white font-black text-xl">{activity.emoji} {activity.title}</p>
                       <p className="text-white/75 text-sm">{activity.sub}</p>
@@ -423,8 +562,6 @@ export default function PartyTab() {
                       <span className="text-white text-xs font-medium">+200 代币</span>
                     </div>
                   </div>
-
-                  {/* Content */}
                   <div className="p-5">
                     <p className="text-[#3C3C43] text-sm leading-relaxed mb-4">{activity.desc}</p>
                     <div className="flex gap-2 flex-wrap text-xs mb-4">

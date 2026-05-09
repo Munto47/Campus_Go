@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "PowerShell(Rename-Item \"D:\\\\munto\\\\code\\\\WORK\\\\Campus_Go\\\\src\" \"D:\\\\munto\\\\code\\\\WORK\\\\Campus_Go\\\\_assets_raw\")",
-      "Bash(dir /s)"
+      "Bash(gh pr *)",
+      "Bash(npm run *)"
     ]
   }
 }
