@@ -15,6 +15,7 @@ const ICON_MAP = {
 export default function MarketTab() {
   const [expandedTask, setExpandedTask]   = useState(null)
   const [actionSheet, setActionSheet]     = useState({ visible: false, task: null })
+  const [acceptedTasks, setAcceptedTasks] = useState([])
   const [toast, setToast]                 = useState({ visible: false, msg: '' })
   const [joinedSquads, setJoinedSquads]   = useState([])
   const [selectedSquad, setSelectedSquad] = useState(null)
@@ -27,6 +28,7 @@ export default function MarketTab() {
   const handleAccept = (task) => setActionSheet({ visible: true, task })
 
   const confirmAccept = () => {
+    setAcceptedTasks(prev => [...prev, actionSheet.task.id])
     setActionSheet({ visible: false, task: null })
     setExpandedTask(null)
     fireToast('✅ 接单成功，请在 30 分钟内完成')
@@ -198,12 +200,22 @@ export default function MarketTab() {
                               <p className="font-black text-base text-black">{task.deadline}</p>
                             </div>
                           </div>
-                          <button
-                            onClick={() => handleAccept(task)}
-                            className="w-full py-3.5 bg-[#34C759] text-white font-bold rounded-2xl mt-3 active:opacity-80 transition-opacity"
-                          >
-                            接单
-                          </button>
+                          {(() => {
+                            const accepted = acceptedTasks.includes(task.id)
+                            return (
+                              <button
+                                onClick={() => !accepted && handleAccept(task)}
+                                disabled={accepted}
+                                className={`w-full py-3.5 font-bold rounded-2xl mt-3 transition-all duration-300 ${
+                                  accepted
+                                    ? 'bg-[#F2F2F7] text-[#8E8E93] cursor-default'
+                                    : 'bg-[#34C759] text-white active:opacity-80'
+                                }`}
+                              >
+                                {accepted ? '✓ 已接单' : '接单'}
+                              </button>
+                            )
+                          })()}
                         </div>
                       </motion.div>
                     )}

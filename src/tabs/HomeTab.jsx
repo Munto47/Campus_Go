@@ -6,6 +6,14 @@ import Toast from '../components/Toast'
 import BottomSheet from '../components/BottomSheet'
 import TypewriterText from '../components/TypewriterText'
 
+function getCalorieEquiv(kcal) {
+  if (kcal < 80)  return '约 1 袋饼干 🍪'
+  if (kcal < 160) return '约 半碗米饭 🍚'
+  if (kcal < 280) return '约 1 碗米饭 🍚'
+  if (kcal < 400) return '约 1 杯奶茶 🧋'
+  return `约 ${Math.round(kcal / 230)} 碗米饭 🍚`
+}
+
 // ── Pets ────────────────────────────────────────────────────────
 const PETS = [
   { src: '/assets/pets/MoodyLlama.lottie',    name: '懒洋洋羊驼', state: '待机中'   },
@@ -489,6 +497,7 @@ export default function HomeTab({ userStats, onUpdateStats, onTabChange }) {
             <div>
               <p className="text-[#8E8E93] text-xs">消耗热量</p>
               <p className="font-black text-2xl text-black">186 <span className="text-sm font-medium text-[#8E8E93]">kcal</span></p>
+              <p className="text-[#8E8E93] text-xs mt-0.5">{getCalorieEquiv(186)}</p>
             </div>
           </div>
         </div>
